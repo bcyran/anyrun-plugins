@@ -9,3 +9,7 @@ crate-type = ["cdylib"]
 [dependencies]
 anyrun-plugin = { git = "https://github.com/Kirottu/anyrun" }
 abi_stable = "0.11.1"
+serde = { version = "1.0.204", features = ["derive"] }
+ron = "0.8.1"
+num_enum = "0.7.3"
+fuzzy-matcher = "0.3.7"
