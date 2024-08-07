@@ -1,5 +1,5 @@
 #![allow(clippy::needless_pass_by_value, clippy::wildcard_imports)]
-use std::{fmt::Display, fs, os::linux::raw::stat};
+use std::{fmt::Display, fs};
 
 use abi_stable::std_types::{ROption, RString, RVec};
 use anyrun_plugin::*;
@@ -174,18 +174,28 @@ fn get_matches(input: RString, state: &State) -> RVec<Match> {
 fn get_fuzzy_matches(matches: impl Iterator<Item = Match>, phrase: &str) -> Vec<Match> {
     let fuzzy_matcher = SkimMatcherV2::default().ignore_case();
     let mut matches_with_scores = matches
-        .filter_map(|m| {
-            fuzzy_matcher
-                // TODO: Match description as well
-                .fuzzy_match(&m.title, phrase)
-                .map(|score| (m, score))
-        })
+        .filter_map(|m| get_match_score(&fuzzy_matcher, &m, phrase).map(|score| (m, score)))
         .collect::<Vec<_>>();
     matches_with_scores.sort_by_key(|item| item.1);
     matches_with_scores
         .into_iter()
         .map(|item| item.0)
         .collect::<Vec<_>>()
+}
+
+fn get_match_score(
+    fuzzy_matcher: &impl FuzzyMatcher,
+    match_to_score: &Match,
+    phrase: &str,
+) -> Option<i64> {
+    let maybe_title_score = fuzzy_matcher.fuzzy_match(&match_to_score.title, phrase);
+    let maybe_description_score = match_to_score
+        .description
+        .as_ref()
+        .and_then(|desc| fuzzy_matcher.fuzzy_match(desc, phrase).into())
+        .into();
+
+    maybe_title_score.max(maybe_description_score)
 }
 
 fn get_action_matches() -> Vec<Match> {
