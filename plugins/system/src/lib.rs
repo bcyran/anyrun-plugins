@@ -1,5 +1,5 @@
 #![allow(clippy::needless_pass_by_value, clippy::wildcard_imports)]
-use std::fs;
+use std::{fmt::Display, fs, os::linux::raw::stat};
 
 use abi_stable::std_types::{ROption, RString, RVec};
 use anyrun_plugin::*;
@@ -112,6 +112,20 @@ enum PowerAction {
     Hibernate,
 }
 
+impl Display for PowerAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let display_name = match self {
+            PowerAction::Lock => "Lock the screen",
+            PowerAction::Logout => "Log out",
+            PowerAction::Poweroff => "Power off",
+            PowerAction::Reboot => "Reboot",
+            PowerAction::Suspend => "Suspend",
+            PowerAction::Hibernate => "Hibernate",
+        };
+        write!(f, "{}", display_name)
+    }
+}
+
 #[derive(PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u64)]
 enum ConfirmAction {
@@ -147,13 +161,14 @@ fn info() -> PluginInfo {
 
 #[get_matches]
 fn get_matches(input: RString, state: &State) -> RVec<Match> {
-    let matches = if state.pending_action.is_some() {
-        get_confirm_matches()
-    } else {
-        get_fuzzy_matches(get_action_matches().into_iter(), &input)
-    };
-
-    matches.into()
+    state
+        .pending_action
+        .as_ref()
+        .map_or_else(
+            || get_fuzzy_matches(get_action_matches().into_iter(), &input),
+            get_confirm_matches,
+        )
+        .into()
 }
 
 fn get_fuzzy_matches(matches: impl Iterator<Item = Match>, phrase: &str) -> Vec<Match> {
@@ -176,42 +191,42 @@ fn get_fuzzy_matches(matches: impl Iterator<Item = Match>, phrase: &str) -> Vec<
 fn get_action_matches() -> Vec<Match> {
     vec![
         Match {
-            title: "Lock screen".into(),
+            title: PowerAction::Lock.to_string().into(),
             icon: ROption::RSome("system-lock-screen".into()),
             use_pango: false,
             description: ROption::RSome("Lock the screen".into()),
             id: ROption::RSome(PowerAction::Lock.into()),
         },
         Match {
-            title: "Log out".into(),
+            title: PowerAction::Logout.to_string().into(),
             icon: ROption::RSome("system-log-out".into()),
             use_pango: false,
             description: ROption::RSome("Log out from the session".into()),
             id: ROption::RSome(PowerAction::Logout.into()),
         },
         Match {
-            title: "Poweroff".into(),
+            title: PowerAction::Poweroff.to_string().into(),
             icon: ROption::RSome("system-shutdown".into()),
             use_pango: false,
             description: ROption::RSome("Poweroff the system".into()),
             id: ROption::RSome(PowerAction::Poweroff.into()),
         },
         Match {
-            title: "Reboot".into(),
+            title: PowerAction::Reboot.to_string().into(),
             icon: ROption::RSome("system-reboot".into()),
             use_pango: false,
             description: ROption::RSome("Reboot the system".into()),
             id: ROption::RSome(PowerAction::Reboot.into()),
         },
         Match {
-            title: "Suspend".into(),
+            title: PowerAction::Suspend.to_string().into(),
             icon: ROption::RSome("system-suspend".into()),
             use_pango: false,
             description: ROption::RSome("Suspend the system".into()),
             id: ROption::RSome(PowerAction::Suspend.into()),
         },
         Match {
-            title: "Hibernate".into(),
+            title: PowerAction::Hibernate.to_string().into(),
             icon: ROption::RSome("system-suspend-hibernate".into()),
             use_pango: false,
             description: ROption::RSome("Hibernate the system".into()),
@@ -220,11 +235,10 @@ fn get_action_matches() -> Vec<Match> {
     ]
 }
 
-fn get_confirm_matches() -> Vec<Match> {
-    // TODO: Parametrize with the pending action for better message
+fn get_confirm_matches(action_to_confirm: &PowerAction) -> Vec<Match> {
     vec![
         Match {
-            title: "Confirm".into(),
+            title: action_to_confirm.to_string().into(),
             icon: ROption::RSome("go-next".into()),
             use_pango: false,
             description: ROption::RSome("Proceed with the selected action".into()),
