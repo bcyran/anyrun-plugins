@@ -115,14 +115,14 @@ enum PowerAction {
 impl Display for PowerAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let display_name = match self {
-            PowerAction::Lock => "Lock the screen",
-            PowerAction::Logout => "Log out",
-            PowerAction::Poweroff => "Power off",
-            PowerAction::Reboot => "Reboot",
-            PowerAction::Suspend => "Suspend",
-            PowerAction::Hibernate => "Hibernate",
+            Self::Lock => "Lock the screen",
+            Self::Logout => "Log out",
+            Self::Poweroff => "Power off",
+            Self::Reboot => "Reboot",
+            Self::Suspend => "Suspend",
+            Self::Hibernate => "Hibernate",
         };
-        write!(f, "{}", display_name)
+        write!(f, "{display_name}")
     }
 }
 
