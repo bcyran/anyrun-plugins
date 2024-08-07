@@ -1,5 +1,9 @@
 #![allow(clippy::needless_pass_by_value, clippy::wildcard_imports)]
-use std::{fmt::Display, fs};
+use std::{
+    fmt::Display,
+    fs,
+    process::{Command, ExitStatus},
+};
 
 use abi_stable::std_types::{ROption, RString, RVec};
 use anyrun_plugin::*;
@@ -43,6 +47,7 @@ impl Config {
 
     fn default_logout_config() -> PowerActionConfig {
         PowerActionConfig {
+            // TODO: Use `$USER` from env
             command: string_vec!["loginctl", "terminate-session", "$USER"],
             confirm: true,
         }
@@ -131,6 +136,12 @@ impl Display for PowerAction {
 enum ConfirmAction {
     Confirm,
     Cancel,
+}
+
+impl ConfirmAction {
+    fn is_confirmed(&self) -> bool {
+        *self == Self::Confirm
+    }
 }
 
 pub struct State {
@@ -266,32 +277,34 @@ fn get_confirm_matches(action_to_confirm: &PowerAction) -> Vec<Match> {
 
 #[handler]
 fn handler(selection: Match, state: &mut State) -> HandleResult {
-    if let Some(ref pending_action) = state.pending_action {
+    let power_action_config = if let Some(ref pending_action) = state.pending_action {
         let confirm_action = ConfirmAction::try_from(selection.id.unwrap()).unwrap();
 
-        if confirm_action == ConfirmAction::Confirm {
-            let power_action_config = state.config.get_action_config(pending_action);
-            execute_power_action(power_action_config);
+        if !confirm_action.is_confirmed() {
             state.pending_action = None;
-            HandleResult::Refresh(false)
-        } else {
-            HandleResult::Close
+            return HandleResult::Refresh(false);
         }
+
+        state.config.get_action_config(pending_action)
     } else {
         let power_action = PowerAction::try_from(selection.id.unwrap()).unwrap();
         let power_action_config = state.config.get_action_config(&power_action);
 
         if power_action_config.confirm {
             state.pending_action = Some(power_action);
-            HandleResult::Refresh(true)
-        } else {
-            execute_power_action(power_action_config);
-            HandleResult::Close
-        }
-    }
+            return HandleResult::Refresh(true);
+        };
+
+        power_action_config
+    };
+
+    // TODO: Notify the user if the action fails
+    execute_power_action(power_action_config).unwrap();
+    HandleResult::Close
 }
 
-fn execute_power_action(action: &PowerActionConfig) {
-    // TODO: Implement the command execution
-    todo!("test")
+fn execute_power_action(action: &PowerActionConfig) -> Result<ExitStatus, std::io::Error> {
+    Command::new(&action.command[0])
+        .args(&action.command[1..])
+        .status()
 }
