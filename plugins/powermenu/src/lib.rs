@@ -115,7 +115,7 @@ enum PowerAction {
 impl Display for PowerAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let display_name = match self {
-            Self::Lock => "Lock the screen",
+            Self::Lock => "Lock",
             Self::Logout => "Log out",
             Self::Poweroff => "Power off",
             Self::Reboot => "Reboot",
@@ -204,42 +204,42 @@ fn get_action_matches() -> Vec<Match> {
             title: PowerAction::Lock.to_string().into(),
             icon: ROption::RSome("system-lock-screen".into()),
             use_pango: false,
-            description: ROption::RSome("Lock the screen".into()),
+            description: ROption::RSome("Lock the session screen".into()),
             id: ROption::RSome(PowerAction::Lock.into()),
         },
         Match {
             title: PowerAction::Logout.to_string().into(),
             icon: ROption::RSome("system-log-out".into()),
             use_pango: false,
-            description: ROption::RSome("Log out from the session".into()),
+            description: ROption::RSome("Terminate the session".into()),
             id: ROption::RSome(PowerAction::Logout.into()),
         },
         Match {
             title: PowerAction::Poweroff.to_string().into(),
             icon: ROption::RSome("system-shutdown".into()),
             use_pango: false,
-            description: ROption::RSome("Poweroff the system".into()),
+            description: ROption::RSome("Shut down the system".into()),
             id: ROption::RSome(PowerAction::Poweroff.into()),
         },
         Match {
             title: PowerAction::Reboot.to_string().into(),
             icon: ROption::RSome("system-reboot".into()),
             use_pango: false,
-            description: ROption::RSome("Reboot the system".into()),
+            description: ROption::RSome("Restart the system".into()),
             id: ROption::RSome(PowerAction::Reboot.into()),
         },
         Match {
             title: PowerAction::Suspend.to_string().into(),
             icon: ROption::RSome("system-suspend".into()),
             use_pango: false,
-            description: ROption::RSome("Suspend the system".into()),
+            description: ROption::RSome("Suspend the system to RAM".into()),
             id: ROption::RSome(PowerAction::Suspend.into()),
         },
         Match {
             title: PowerAction::Hibernate.to_string().into(),
             icon: ROption::RSome("system-suspend-hibernate".into()),
             use_pango: false,
-            description: ROption::RSome("Hibernate the system".into()),
+            description: ROption::RSome("Suspend the system to disk".into()),
             id: ROption::RSome(PowerAction::Hibernate.into()),
         },
     ]
