@@ -10,13 +10,9 @@ use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::Deserialize;
 
-macro_rules! string_vec {
-    ($($x:expr),*) => (vec![$($x.to_string()),*]);
-}
-
 #[derive(Deserialize, Default)]
 struct PowerActionConfig {
-    command: Vec<String>,
+    command: String,
     confirm: bool,
 }
 
@@ -39,43 +35,42 @@ struct Config {
 impl Config {
     fn default_lock_config() -> PowerActionConfig {
         PowerActionConfig {
-            command: string_vec!["loginctl", "lock-session"],
+            command: String::from("loginctl lock-session"),
             confirm: false,
         }
     }
 
     fn default_logout_config() -> PowerActionConfig {
         PowerActionConfig {
-            // TODO: Use `$USER` from env
-            command: string_vec!["loginctl", "terminate-session", "$USER"],
+            command: String::from("loginctl terminate-user $USER"),
             confirm: true,
         }
     }
 
     fn default_poweroff_config() -> PowerActionConfig {
         PowerActionConfig {
-            command: string_vec!["systemctl", "-i", "poweroff"],
+            command: String::from("systemctl -i poweroff"),
             confirm: true,
         }
     }
 
     fn default_reboot_config() -> PowerActionConfig {
         PowerActionConfig {
-            command: string_vec!["systemctl", "-i", "reboot"],
+            command: String::from("systemctl -i reboot"),
             confirm: true,
         }
     }
 
     fn default_suspend_config() -> PowerActionConfig {
         PowerActionConfig {
-            command: string_vec!["systemctl", "-i", "suspend"],
+            command: String::from("systemctl -i suspend"),
             confirm: false,
         }
     }
 
     fn default_hibernate_config() -> PowerActionConfig {
         PowerActionConfig {
-            command: string_vec!["systemctl", "-i", "hibernate"],
+            command: String::from("systemctl -i hibernate"),
             confirm: false,
         }
     }
@@ -293,7 +288,9 @@ fn handler(selection: Match, state: &mut State) -> HandleResult {
 }
 
 fn execute_power_action(action: &PowerActionConfig) -> Result<ExitStatus, std::io::Error> {
-    Command::new(&action.command[0])
-        .args(&action.command[1..])
+    Command::new("/usr/bin/env")
+        .arg("sh")
+        .arg("-c")
+        .arg(&action.command)
         .status()
 }
