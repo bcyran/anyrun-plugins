@@ -210,10 +210,10 @@ pub struct State {
 
 #[init]
 fn init(config_dir: RString) -> State {
-    let config = fs::read_to_string(format!("{config_dir}/powermenu.ron")).map_or_else(
-        |_err| Config::default(),
-        |content| ron::from_str(&content).unwrap_or_default(),
-    );
+    let config = fs::read_to_string(format!("{config_dir}/powermenu.ron"))
+        .map_or(Config::default(), |content| {
+            ron::from_str(&content).unwrap_or_default()
+        });
 
     State {
         config,
