@@ -1,13 +1,16 @@
 #![allow(clippy::needless_pass_by_value, clippy::wildcard_imports)]
+use core::str;
 use std::{
     fs,
-    process::{Command, ExitStatus},
+    io::Error,
+    process::{Command, Output},
 };
 
 use abi_stable::std_types::{ROption, RString, RVec};
 use anyrun_plugin::*;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use ron::Result;
 use serde::Deserialize;
 
 #[derive(Deserialize, Default)]
@@ -202,6 +205,7 @@ impl ConfirmAction {
 pub struct State {
     config: Config,
     pending_action: Option<PowerAction>,
+    error_message: Option<String>,
 }
 
 #[init]
@@ -214,6 +218,7 @@ fn init(config_dir: RString) -> State {
     State {
         config,
         pending_action: None,
+        error_message: None,
     }
 }
 
@@ -227,17 +232,16 @@ fn info() -> PluginInfo {
 
 #[get_matches]
 fn get_matches(input: RString, state: &State) -> RVec<Match> {
-    state
-        .pending_action
-        .map_or_else(
-            || {
-                PowerAction::get_fuzzy_matching_values(&input)
-                    .map(PowerAction::as_match)
-                    .collect()
-            },
-            get_confirm_matches,
-        )
-        .into()
+    if let Some(ref error_message) = state.error_message {
+        get_error_matches(error_message)
+    } else if let Some(pending_action) = state.pending_action {
+        get_confirm_matches(pending_action)
+    } else {
+        PowerAction::get_fuzzy_matching_values(&input)
+            .map(PowerAction::as_match)
+            .collect()
+    }
+    .into()
 }
 
 fn get_confirm_matches(action_to_confirm: PowerAction) -> Vec<Match> {
@@ -259,8 +263,22 @@ fn get_confirm_matches(action_to_confirm: PowerAction) -> Vec<Match> {
     ]
 }
 
+fn get_error_matches(error_message: &str) -> Vec<Match> {
+    vec![Match {
+        title: "ERROR!".into(),
+        icon: ROption::RSome("dialog-error".into()),
+        use_pango: false,
+        description: ROption::RSome(error_message.into()),
+        id: ROption::RSome(ConfirmAction::Confirm.into()),
+    }]
+}
+
 #[handler]
 fn handler(selection: Match, state: &mut State) -> HandleResult {
+    if state.error_message.is_some() {
+        return HandleResult::Close;
+    }
+
     let power_action_config = if let Some(ref pending_action) = state.pending_action {
         let confirm_action = ConfirmAction::try_from(selection.id.unwrap()).unwrap();
 
@@ -282,15 +300,32 @@ fn handler(selection: Match, state: &mut State) -> HandleResult {
         power_action_config
     };
 
-    // TODO: Notify the user if the action fails
-    execute_power_action(power_action_config).unwrap();
+    let action_result = execute_power_action(power_action_config);
+    let error_message = get_error_message(action_result);
+    if error_message.is_some() {
+        state.error_message = error_message;
+        return HandleResult::Refresh(true);
+    }
+
     HandleResult::Close
 }
 
-fn execute_power_action(action: &PowerActionConfig) -> Result<ExitStatus, std::io::Error> {
+fn execute_power_action(action: &PowerActionConfig) -> Result<Output, std::io::Error> {
     Command::new("/usr/bin/env")
         .arg("sh")
         .arg("-c")
         .arg(&action.command)
-        .status()
+        .output()
+}
+
+fn get_error_message(command_result: Result<Output, Error>) -> Option<String> {
+    match command_result {
+        Err(err) => Some(format!("Could not run command: {err}")),
+        Ok(output) if !output.status.success() => Some(format!(
+            "{}, stderr: {}",
+            output.status,
+            String::from_utf8_lossy(output.stderr.as_ref())
+        )),
+        Ok(_) => None,
+    }
 }
