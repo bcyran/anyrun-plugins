@@ -43,6 +43,9 @@
         packages = with pkgs; [
           rustToolchain
           rust-analyzer
+
+          marksman
+          markdownlint-cli2
         ];
         env = {
           RUST_SRC_PATH = "${pkgs.rustToolchain}/lib/rustlib/src/rust/library";
